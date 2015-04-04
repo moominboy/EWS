@@ -1,0 +1,180 @@
+import java.io.*;
+import java.net.*;
+import java.time.LocalDateTime;
+
+class Server implements Runnable
+{
+	Socket serverSocket;
+	public Server(Socket s){
+		try{			
+			serverSocket=s;
+		}
+		catch(Exception e){
+			e.printStackTrace();}
+	}
+	public void run(){
+		try{
+			//Initialisation for Alert colour logic
+			String AlertColour=null;
+			int AmberCount= 0;
+			int RRVal = 0;
+			int O2Val=0;
+			double TempVal=0.0;
+			int BPVal=0;
+			int HRVal=0;
+			boolean Reset = false;
+
+			BufferedReader reader =
+					new BufferedReader(new InputStreamReader(serverSocket.getInputStream()));
+			BufferedWriter writer= 
+					new BufferedWriter(new OutputStreamWriter(serverSocket.getOutputStream()));
+			DataInputStream din = new DataInputStream(serverSocket.getInputStream());
+			while (true) {
+				int	RR = din.readInt();
+				int	O2 = din.readInt();
+				double	Temp = din.readDouble();
+				int	BP = din.readInt();
+				int	HR = din.readInt();
+				System.out.println("Data Received at " + LocalDateTime.now() );
+
+				System.out.println("Current Alert status is  " + AlertColour);
+
+				//RR colour logic produces single Int in relation
+				//to the conditional check
+
+				if  (RR >= 12 && RR <= 20 ){
+					RRVal = 0; 
+				}
+				else if (RR >=9 && RR <=11 ){
+					RRVal = 1; 
+				}
+				else if (RR >=21 && RR <=24 ){
+					RRVal = 2; 
+				}
+				else if (RR <=8 || RR >=25 ){
+					RRVal = 3; 
+				}
+				//O2 Colour logic produces single Int in relation
+				//to the conditional check
+
+				if  (O2 >= 96 ){
+					O2Val = 0; 
+				}
+				else if (O2 >=94 && O2 <=95 ){
+					O2Val = 1; 
+				}
+				else if (O2 >=92 && O2 <=93 ){
+					O2Val = 2; 
+				}
+				else if (O2<=91 ){
+					O2Val = 3; 
+				}
+				//Temperature colour logic, produces single Int in relation 
+				//to the conditional check
+				if  (Temp >= 36.1 && Temp <= 38.0 ){
+					TempVal = 0; 
+				}
+				else if (Temp >= 35.1 && Temp >= 36.0   
+						|| Temp >=38.1 && Temp <= 39.0  ){
+					TempVal = 1; 
+				}
+				else if (Temp >=39.1 ){
+					TempVal = 2;  
+				}
+				else if (Temp <=35.0 ){
+					TempVal = 3;  
+				}
+
+				//BP colour logic, produces single Int in relation 
+				//to the conditional check
+
+				if  (BP >= 111 && BP <=219 ){
+					BPVal = 0; 
+				}
+				else if (BP >= 101 && BP <=110 ){
+					BPVal = 1; 
+				}
+				else if (BP >= 91 && BP <=100 ){
+					BPVal = 2; 
+				}
+				else if (BP<=9 || BP >=220 ){
+					BPVal = 3; 
+				}
+
+				//BP colour logic, produces single Int in relation 
+				//to the conditional check
+
+				if  (HR >= 51 && HR <= 90 ){
+					HRVal = 0; 
+				}
+				else if (BP >= 101 && BP <=110 ){
+					BPVal = 1; 
+				}
+				else if (BP >= 91 && BP <=100 ){
+					BPVal = 2; 
+				}
+				else if (BP<=9 || BP >=220 ){
+					BPVal = 3; 
+				}
+
+
+				//HR colour logic, produces single Int in relation 
+				//to the conditional check
+
+				if  (HR >= 51 && HR <= 90 ){
+					HRVal = 0; 
+				}
+				else if (HR >= 41 && HR <= 50 
+						|| HR >= 91 && HR <= 110){
+					HRVal = 1; 
+				}
+				else if (HR >=111 && HR <= 130 ){
+					HRVal = 2; 
+				}
+				else if (HR <= 40 || HR >= 131 ){
+					HRVal = 3; 
+				}
+				if (RRVal+O2Val+TempVal+BPVal+HRVal <= 1){
+					AlertColour = "Green" ;
+					AmberCount = 0; // reset any value in AmberCount
+				} // Why is the IDE forcing the use of <= instead of = ?
+				else if (RRVal+O2Val+TempVal+BPVal+HRVal <= 2){
+					AlertColour = "Amber" ;
+
+					// extra timer logic for switching to red after 5 mins*********
+				}
+				else if (RRVal+O2Val+TempVal+BPVal+HRVal <= 3){
+					AlertColour = "Red" ;
+				}
+				if (AmberCount >= 300){ // simple timer logic. 300 * 5 (secs) = 5 mins, Alarm condition
+					AlertColour = "Red" ;
+				}
+				if (Reset = false && AlertColour.equals ("Amber")){ 
+					AmberCount ++;
+
+				}
+				System.out.print("RRVal is = " + RRVal+ ", "); 
+				System.out.print("O2Val is = " + O2Val+ ", ");
+				System.out.print("TempVal is = " + TempVal+ ", ");
+				System.out.print("BPVal is = " +BPVal+ ", ");
+				System.out.println("HRVal is = " +HRVal+ ", ");
+				Thread.sleep(10 * 1000);
+			}
+
+		}
+		catch(Exception e){e.printStackTrace();
+		}
+	}
+	public static void main(String argv[]) throws Exception	{
+		System.out.println("EWS Server is Running  " );
+		ServerSocket mysocket = new ServerSocket(5555);
+		while(true)	{
+			Socket sock = mysocket.accept(); // .accept() blocks the thread until a new connection is made
+			Server server=new Server(sock); // after the block a new server socket is created
+			Thread serverThread=new Thread(server); // with a following new thread
+			serverThread.start();
+			System.out.println("Connected to new client.");
+			System.out.println("Receiving patient data..." );
+		}
+	}
+}
